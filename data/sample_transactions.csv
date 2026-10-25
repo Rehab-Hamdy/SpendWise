@@ -1,101 +1,45 @@
 date,description,category,amount
-2023-09-01,Coffee,Food & Drink,3.5
-2023-09-02,Groceries,Food & Drink,45.2
-2023-09-03,Uber Ride,Transport,12.0
-2023-09-04,Electricity Bill,Utilities,60.75
-2023-09-05,Movie Ticket,Entertainment,12.5
-2023-09-06,Laundry,Home,23.53
-2023-09-10,Electronics,Shopping,85.24
-2023-09-14,Streaming Subscription,Entertainment,10.25
-2023-09-16,Pharmacy,Health,19.59
-2023-09-17,Snacks,Food & Drink,8.02
-2023-09-18,Concert Ticket,Entertainment,62.36
-2023-09-19,Technical Book,Education,47.88
-2023-09-20,Lunch,Food & Drink,15.18
-2023-09-20,Museum Ticket,Entertainment,16.26
-2023-09-22,Skincare,Shopping,35.08
-2023-09-22,Takeaway,Food & Drink,32.37
-2023-09-23,Uber Ride,Transport,22.38
-2023-09-23,Groceries,Food & Drink,75.17
-2023-09-23,Shoes,Shopping,101.47
-2023-09-25,Dinner,Food & Drink,35.68
-2023-09-26,Parking,Transport,13.39
-2023-09-26,Concert Ticket,Entertainment,47.79
-2023-09-26,Electricity Bill,Utilities,73.93
-2023-10-02,Bowling,Entertainment,12.57
-2023-10-02,Concert Ticket,Entertainment,70.54
-2023-10-03,Laundry,Home,7.04
-2023-10-03,Pharmacy,Health,10.75
-2023-10-03,Technical Book,Education,19.57
-2023-10-04,Coffee,Food & Drink,3.42
-2023-10-06,Tea,Food & Drink,2.25
-2023-10-07,Electronics,Shopping,67.84
-2023-10-08,Online Course,Education,24.69
-2023-10-09,Snacks,Food & Drink,7.39
-2023-10-09,Takeaway,Food & Drink,15.21
-2023-10-09,Home Repair,Home,98.77
-2023-10-10,Home Repair,Home,127.96
-2023-10-13,Coffee,Food & Drink,4.82
-2023-10-19,Snacks,Food & Drink,4.3
-2023-10-21,Bakery,Food & Drink,10.72
-2023-10-24,Bakery,Food & Drink,12.12
-2023-10-24,Takeaway,Food & Drink,24.7
-2023-10-26,Bakery,Food & Drink,8.03
-2023-10-27,Laundry,Home,13.76
-2023-10-29,Museum Ticket,Entertainment,12.84
-2023-10-30,Mobile Phone Bill,Utilities,18.3
-2023-10-30,Pharmacy,Health,4.15
-2023-11-01,Mobile Phone Bill,Utilities,23.14
-2023-11-02,Electricity Bill,Utilities,84.32
-2023-11-03,Concert Ticket,Entertainment,36.27
-2023-11-04,Groceries,Food & Drink,52.12
-2023-11-04,Electricity Bill,Utilities,79.22
-2023-11-04,Pharmacy,Health,31.61
-2023-11-05,Home Repair,Home,58.73
-2023-11-07,Doctor Visit,Health,30.27
-2023-11-07,Takeaway,Food & Drink,31.85
-2023-11-08,Parking,Transport,7.97
-2023-11-09,Water Bill,Utilities,16.23
-2023-11-09,Takeaway,Food & Drink,31.9
-2023-11-10,Lunch,Food & Drink,8.03
-2023-11-11,Bus Fare,Transport,1.45
-2023-11-13,Fuel,Transport,30.09
-2023-11-13,Books,Shopping,21.18
-2023-11-14,Restaurant,Food & Drink,20.13
-2023-11-14,Pharmacy,Health,41.98
-2023-11-14,Takeaway,Food & Drink,10.49
-2023-11-15,Groceries,Food & Drink,90.3
-2023-11-16,Snacks,Food & Drink,6.2
-2023-11-17,Cleaning Supplies,Home,21.13
-2023-11-19,Taxi,Transport,7.31
-2023-11-24,Technical Book,Education,35.98
-2023-11-26,Bakery,Food & Drink,5.69
-2023-11-27,Restaurant,Food & Drink,66.79
-2023-12-02,Museum Ticket,Entertainment,14.52
-2023-12-05,Dinner,Food & Drink,37.51
-2023-12-08,Kitchen Supplies,Home,16.05
-2023-12-10,Dinner,Food & Drink,40.53
-2023-12-10,Mobile Phone Bill,Utilities,17.77
-2023-12-11,Books,Shopping,29.95
-2023-12-11,Online Course,Education,63.12
-2023-12-13,Movie Ticket,Entertainment,10.94
-2023-12-13,Bakery,Food & Drink,4.78
-2023-12-14,Mobile Phone Bill,Utilities,34.29
-2023-12-15,Fuel,Transport,58.31
-2023-12-16,Cleaning Supplies,Home,31.97
-2023-12-17,Dental Care,Health,28.1
-2023-12-17,Doctor Visit,Health,35.33
-2023-12-18,Tea,Food & Drink,3.38
-2023-12-18,Movie Ticket,Entertainment,14.68
-2023-12-21,Internet Bill,Utilities,33.35
-2023-12-21,Taxi,Transport,7.11
-2023-12-21,Books,Shopping,7.03
-2023-12-22,Clothing,Shopping,39.05
-2023-12-23,Restaurant,Food & Drink,50.54
-2023-12-25,Lunch,Food & Drink,18.88
-2023-12-25,Pharmacy,Health,6.07
-2023-12-26,Water Bill,Utilities,28.44
-2023-12-27,Bakery,Food & Drink,4.74
-2023-12-27,Electricity Bill,Utilities,40.57
-2023-12-28,Electricity Bill,Utilities,75.26
-2023-12-30,Takeaway,Food & Drink,10.84
+2025-01-02,Groceries,Food,120.00
+2025-01-05,Restaurant,Food,45.00
+2025-01-09,Groceries,Food,95.00
+2025-01-15,Groceries,Food,110.00
+2025-01-20,Coffee shop,Food,12.00
+2025-01-03,Metro card,Transport,40.00
+2025-01-12,Uber,Transport,18.00
+2025-01-22,Uber,Transport,22.00
+2025-01-28,Fuel,Transport,50.00
+2025-01-01,Rent,Housing,900.00
+2025-01-06,Electricity,Utilities,60.00
+2025-01-18,Internet,Utilities,35.00
+2025-01-14,Streaming,Entertainment,15.00
+2025-01-25,Cinema,Entertainment,25.00
+2025-02-02,Groceries,Food,115.00
+2025-02-06,Restaurant,Food,50.00
+2025-02-11,Groceries,Food,100.00
+2025-02-16,Groceries,Food,105.00
+2025-02-21,Coffee shop,Food,14.00
+2025-02-04,Metro card,Transport,40.00
+2025-02-13,Uber,Transport,20.00
+2025-02-23,Uber,Transport,19.00
+2025-02-27,Fuel,Transport,48.00
+2025-02-01,Rent,Housing,900.00
+2025-02-07,Electricity,Utilities,65.00
+2025-02-18,Internet,Utilities,35.00
+2025-02-14,Streaming,Entertainment,15.00
+2025-02-24,Cinema,Entertainment,22.00
+2025-03-02,Groceries,Food,125.00
+2025-03-05,Restaurant,Food,80.00
+2025-03-09,Groceries,Food,98.00
+2025-03-13,Anniversary dinner,Food,210.00
+2025-03-16,Groceries,Food,108.00
+2025-03-22,Coffee shop,Food,13.00
+2025-03-04,Metro card,Transport,40.00
+2025-03-12,Uber,Transport,35.00
+2025-03-19,Uber,Transport,30.00
+2025-03-28,Fuel,Transport,52.00
+2025-03-01,Rent,Housing,900.00
+2025-03-07,Electricity,Utilities,70.00
+2025-03-18,Internet,Utilities,35.00
+2025-03-14,Streaming,Entertainment,15.00
+2025-03-20,Concert tickets,Entertainment,180.00
+2025-03-25,Cinema,Entertainment,24.00
