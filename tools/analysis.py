@@ -7,12 +7,14 @@ The functions are deliberately small and typed so they can be unit‑tested
 independently of the LangChain agent that will wrap them later.
 """
 
+import json
 import pandas as pd
 from pathlib import Path
 from typing import Tuple, Dict, List
 
 # Expected columns in the CSV file
 EXPECTED_COLUMNS = ["date", "description", "category", "amount"]
+DEFAULT_BUDGETS_PATH = Path(__file__).resolve().parents[1] / "data" / "budgets.json"
 
 
 def load_transactions(csv_path: str | Path) -> pd.DataFrame:
@@ -37,7 +39,15 @@ def load_transactions(csv_path: str | Path) -> pd.DataFrame:
         raise FileNotFoundError(f"Transaction file not found: {path}")
 
     # Load raw CSV
-    df = pd.read_csv(path)
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError("CSV file is empty.") from exc
+    except Exception as exc:
+        raise ValueError(f"Failed to read CSV file: {exc}") from exc
+
+    if df.empty:
+        raise ValueError("CSV file contains headers but no transaction rows.")
 
     # Validate column presence
     missing = set(EXPECTED_COLUMNS) - set(df.columns.str.lower())
@@ -47,24 +57,28 @@ def load_transactions(csv_path: str | Path) -> pd.DataFrame:
     # Normalise column names to lower case for internal consistency
     df.columns = [c.lower() for c in df.columns]
 
+    # Check for any missing values in required columns BEFORE type conversion
+    if df[EXPECTED_COLUMNS].isnull().any().any():
+        rows = df[EXPECTED_COLUMNS].isnull().any(axis=1)
+        raise ValueError(
+            f"Missing values detected in rows: {list(df[rows].index)}"
+        )
+
     # Parse dates
     try:
         df["date"] = pd.to_datetime(df["date"], errors="raise")
     except Exception as exc:
         raise ValueError(f"Invalid date values: {exc}") from exc
 
-    # Ensure amount is numeric
+    # Ensure amount is numeric and positive
     try:
         df["amount"] = pd.to_numeric(df["amount"], errors="raise")
     except Exception as exc:
         raise ValueError(f"Invalid amount values: {exc}") from exc
 
-    # Check for any missing values in required columns
-    if df[EXPECTED_COLUMNS].isnull().any().any():
-        rows = df[EXPECTED_COLUMNS].isnull().any(axis=1)
-        raise ValueError(
-            f"Missing values detected in rows: {list(df[rows].index)}"
-        )
+    if (df["amount"] <= 0).any():
+        bad = list(df[df["amount"] <= 0].index)
+        raise ValueError(f"Transaction amounts must be positive (rows: {bad})")
 
     return df
 
@@ -100,6 +114,23 @@ def validate_and_summarise(csv_path: str | Path) -> Tuple[float, Dict[str, float
     df = load_transactions(csv_path)
     return get_spending_summary(df)
 
+def get_dataset_overview(df: pd.DataFrame) -> dict:
+    """Return high-level metadata about the loaded transaction dataset.
+
+    Includes the exact earliest and latest transaction dates in the CSV,
+    total transaction count, total spending, and available categories.
+    """
+    earliest = df["date"].min().strftime("%Y-%m-%d")
+    latest = df["date"].max().strftime("%Y-%m-%d")
+    return {
+        "earliest_date": earliest,
+        "latest_date": latest,
+        "transaction_count": int(len(df)),
+        "total_spending": round(float(df["amount"].sum()), 2),
+        "categories": sorted(df["category"].unique().tolist()),
+    }
+
+
 def get_spending_summary_for_period(
     df: pd.DataFrame, start: str | None = None, end: str | None = None
 ) -> dict:
@@ -111,14 +142,19 @@ def get_spending_summary_for_period(
     start, end: inclusive ISO dates (``"YYYY-MM-DD"``). ``None`` means unbounded.
 
     Returns a JSON-friendly dict (total, transaction count, per-category totals
-    sorted from largest to smallest, and the 5 largest transactions).
+    sorted from largest to smallest, actual earliest/latest transaction dates in
+    the matched rows, and the 5 largest transactions).
     """
     data = _filter_period(df, start, end)
     cats = data.groupby("category")["amount"].sum().sort_values(ascending=False)
     top = data.nlargest(5, "amount")
+    earliest_actual = data["date"].min().strftime("%Y-%m-%d") if len(data) else None
+    latest_actual = data["date"].max().strftime("%Y-%m-%d") if len(data) else None
     return {
-        "start": start,
-        "end": end,
+        "start": start or earliest_actual,
+        "end": end or latest_actual,
+        "earliest_date": earliest_actual,
+        "latest_date": latest_actual,
         "total": round(float(data["amount"].sum()), 2),
         "transaction_count": int(len(data)),
         "category_totals": {k: round(float(v), 2) for k, v in cats.items()},
@@ -163,9 +199,10 @@ def compare_spending_periods(
 
     total_a, total_b = float(a["amount"].sum()), float(b["amount"].sum())
     supporting = []
-    if breakdown and breakdown[0]["change"] != 0:
-        top_cat = breakdown[0]["category"]
-        supporting = _records(b[b["category"] == top_cat].nlargest(3, "amount"))
+    for row in breakdown:
+        if row["change"] != 0:
+            cat_name = row["category"]
+            supporting.extend(_records(b[b["category"] == cat_name].nlargest(3, "amount")))
 
     return {
         "period_a": {"start": period_a_start, "end": period_a_end, "total": round(total_a, 2)},
@@ -256,14 +293,103 @@ def get_budget_recommendations(
     return {"months_analyzed": int(n_months), "recommendations": recs}
 
 
+def load_budgets(budgets_path: str | Path = DEFAULT_BUDGETS_PATH) -> Dict[str, float]:
+    """Load stored monthly budgets per category from a local JSON file."""
+    path = Path(budgets_path)
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {}
+        return {str(k): round(float(v), 2) for k, v in data.items()}
+    except Exception:
+        return {}
+
+
+def save_budget_limit(
+    category: str,
+    monthly_limit: float,
+    budgets_path: str | Path = DEFAULT_BUDGETS_PATH,
+) -> dict:
+    """Save or update a monthly budget limit for a category in the JSON file."""
+    if not category or not category.strip():
+        raise ValueError("Category name cannot be empty.")
+    if monthly_limit <= 0:
+        raise ValueError(f"Budget limit must be positive (got {monthly_limit}).")
+
+    path = Path(budgets_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    budgets = load_budgets(path)
+    cat_clean = category.strip()
+    old_limit = budgets.get(cat_clean)
+    budgets[cat_clean] = round(float(monthly_limit), 2)
+    path.write_text(json.dumps(budgets, indent=2), encoding="utf-8")
+    return {
+        "category": cat_clean,
+        "previous_limit": old_limit,
+        "new_limit": budgets[cat_clean],
+        "all_budgets": budgets,
+    }
+
+
+def delete_budget_limit(
+    category: str,
+    budgets_path: str | Path = DEFAULT_BUDGETS_PATH,
+) -> dict:
+    """Remove a saved monthly budget limit for a category from the JSON file.
+
+    If the category does not have a saved budget, returns ``deleted: False`` and
+    leaves existing budgets unchanged.
+    """
+    if not category or not category.strip():
+        raise ValueError("Category name cannot be empty.")
+
+    path = Path(budgets_path)
+    budgets = load_budgets(path)
+    cat_clean = category.strip()
+    match = next((k for k in budgets if k.lower() == cat_clean.lower()), None)
+    if match is None:
+        return {
+            "category": cat_clean,
+            "deleted": False,
+            "previous_limit": None,
+            "message": f"No saved budget found for '{cat_clean}'.",
+            "all_budgets": budgets,
+        }
+
+    removed = budgets.pop(match)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(budgets, indent=2), encoding="utf-8")
+    return {
+        "category": match,
+        "deleted": True,
+        "previous_limit": removed,
+        "message": f"Deleted saved budget for '{match}' (was ${removed:.2f}).",
+        "all_budgets": budgets,
+    }
+
+
 # ---------------------------------------------------------------- helpers ---
 def _filter_period(df: pd.DataFrame, start: str | None, end: str | None) -> pd.DataFrame:
     """Return rows with start <= date <= end (inclusive)."""
     out = df
+    ts_start = None
+    ts_end = None
     if start:
-        out = out[out["date"] >= pd.to_datetime(start)]
+        try:
+            ts_start = pd.to_datetime(start, errors="raise")
+        except Exception as exc:
+            raise ValueError(f"Invalid start date '{start}'. Expected YYYY-MM-DD.") from exc
+        out = out[out["date"] >= ts_start]
     if end:
-        out = out[out["date"] <= pd.to_datetime(end)]
+        try:
+            ts_end = pd.to_datetime(end, errors="raise")
+        except Exception as exc:
+            raise ValueError(f"Invalid end date '{end}'. Expected YYYY-MM-DD.") from exc
+        out = out[out["date"] <= ts_end]
+    if ts_start is not None and ts_end is not None and ts_start > ts_end:
+        raise ValueError(f"Start date ({start}) cannot be after end date ({end}).")
     return out
 
 
