@@ -24,8 +24,10 @@ if str(REPO_ROOT) not in sys.path:
 from spendwise.agent import (
     DEFAULT_CSV,
     build_agent,
+    configure_langsmith,
     generate_expense_report,
     get_pending_interrupt,
+    make_run_config,
     resume_approval,
 )
 from spendwise.tools.analysis import (
@@ -46,7 +48,11 @@ def send_chat_message(
     dataset_name: str,
 ) -> dict[str, Any]:
     """Invoke the SpendWise agent for one chat turn and return reply, tool calls, and HITL state."""
-    config = {"configurable": {"thread_id": thread_id}}
+    config = make_run_config(
+        thread_id,
+        run_name="SpendWiseStreamlitTurn",
+        dataset_name=dataset_name,
+    )
     result = agent.invoke(
         {"messages": [{"role": "user", "content": question}], "dataset_name": dataset_name},
         config,
@@ -128,6 +134,11 @@ def main() -> None:
         st.subheader("💬 Session Controls")
         st.write(f"**Active dataset:** `{st.session_state.dataset_name}`")
         st.write(f"**Thread ID:** `{st.session_state.thread_id[:8]}`")
+        ls_info = configure_langsmith()
+        if ls_info["enabled"]:
+            st.write(f"**LangSmith:** 🟢 Active (`{ls_info['project']}`)")
+        else:
+            st.write("**LangSmith:** ⚪ Disabled")
 
         if st.button("🔄 New Conversation Thread", use_container_width=True):
             st.session_state.thread_id = str(uuid.uuid4())

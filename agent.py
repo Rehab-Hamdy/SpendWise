@@ -29,6 +29,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
+from langsmith import traceable
 
 from .schemas import ExpenseReport, UnusualTransactionItem, BudgetRecommendationItem
 from .tools.agent_tools import make_tools
@@ -57,11 +58,76 @@ class SpendWiseState(AgentState):
     last_comparison: dict[str, Any]
 
 
-load_dotenv()  # reads API keys + MODEL_NAME from .env
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=True)  # reads API keys + MODEL_NAME from spendwise/.env
 
 DEFAULT_CSV = Path(__file__).resolve().parent / "data" / "sample_transactions.csv"
 # "provider:model" - see .env.example for free options
 DEFAULT_MODEL = "groq:openai/gpt-oss-20b"
+DEFAULT_LANGSMITH_PROJECT = "SpendWise"
+
+
+def configure_langsmith() -> dict[str, Any]:
+    """Configure and report LangSmith tracing status from environment variables.
+
+    Supports both ``LANGSMITH_*`` and ``LANGCHAIN_*`` environment variable conventions.
+    """
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
+    api_key = os.getenv("LANGSMITH_API_KEY") or os.getenv("LANGCHAIN_API_KEY")
+    raw_flag = (
+        os.getenv("LANGSMITH_TRACING")
+        or os.getenv("LANGCHAIN_TRACING_V2")
+        or ""
+    ).strip().lower()
+    enabled = raw_flag in {"true", "1", "yes"} and bool(api_key)
+    project = (
+        os.getenv("LANGSMITH_PROJECT")
+        or os.getenv("LANGCHAIN_PROJECT")
+        or DEFAULT_LANGSMITH_PROJECT
+    )
+    endpoint = (
+        os.getenv("LANGSMITH_ENDPOINT")
+        or os.getenv("LANGCHAIN_ENDPOINT")
+        or "https://api.smith.langchain.com"
+    )
+
+    if enabled:
+        os.environ["LANGSMITH_TRACING"] = "true"
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGSMITH_PROJECT"] = project
+        os.environ["LANGCHAIN_PROJECT"] = project
+        os.environ["LANGSMITH_ENDPOINT"] = endpoint
+        os.environ["LANGCHAIN_ENDPOINT"] = endpoint
+        if api_key:
+            os.environ["LANGSMITH_API_KEY"] = api_key
+            os.environ["LANGCHAIN_API_KEY"] = api_key
+
+    return {
+        "enabled": enabled,
+        "project": project,
+        "endpoint": endpoint,
+        "has_api_key": bool(api_key),
+    }
+
+
+def make_run_config(
+    thread_id: str,
+    run_name: str = "SpendWiseTurn",
+    dataset_name: str | None = None,
+) -> dict[str, Any]:
+    """Build a LangGraph/LangChain config with LangSmith metadata and tags."""
+    metadata: dict[str, Any] = {"thread_id": thread_id}
+    if dataset_name:
+        metadata["dataset_name"] = dataset_name
+    return {
+        "configurable": {"thread_id": thread_id},
+        "run_name": run_name,
+        "tags": ["spendwise"],
+        "metadata": metadata,
+    }
+
+
+configure_langsmith()
 
 SYSTEM_PROMPT = """# IDENTITY
 You are SpendWise, an AI personal expense investigator. You are NOT ChatGPT, not
@@ -299,6 +365,7 @@ def build_agent(
         middleware=middlewares,
         # The checkpointer saves state after every step, keyed by thread_id.
         checkpointer=InMemorySaver(),
+        name="SpendWiseAgent",
     )
 
 
@@ -319,7 +386,10 @@ def resume_approval(
     reason: str = "User cancelled the action.",
 ) -> str:
     """Resume a paused thread after the user approves or rejects the pending tool call."""
-    config = {"configurable": {"thread_id": thread_id}}
+    config = make_run_config(
+        thread_id,
+        run_name="SpendWiseHITLResume",
+    )
     decision = {"type": "approve"} if approved else {"type": "reject", "message": reason}
     result = agent.invoke(
         Command(resume={"decisions": [decision]}),
@@ -328,6 +398,7 @@ def resume_approval(
     return result["messages"][-1].content
 
 
+@traceable(name="generate_expense_report", tags=["spendwise", "report"])
 def generate_expense_report(
     csv_path: str | Path = DEFAULT_CSV,
     model_name: str | None = None,
@@ -400,7 +471,11 @@ def ask(
     verbose: bool = True,
 ) -> str:
     """Send one question within a conversation (thread), handling HITL confirmation if triggered."""
-    config = {"configurable": {"thread_id": thread_id}}
+    config = make_run_config(
+        thread_id,
+        run_name="SpendWiseChatTurn",
+        dataset_name=dataset_name,
+    )
     result = agent.invoke(
         {"messages": [{"role": "user", "content": question}], "dataset_name": dataset_name},
         config,
@@ -433,8 +508,14 @@ def main() -> None:
 
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
+    ls_info = configure_langsmith()
+    ls_status = (
+        f"ON (project='{ls_info['project']}')"
+        if ls_info["enabled"]
+        else "OFF (set LANGSMITH_TRACING=true and LANGSMITH_API_KEY in .env)"
+    )
     print(
-        f"SpendWise ready (thread {thread_id[:8]}). "
+        f"SpendWise ready (thread {thread_id[:8]} | LangSmith: {ls_status}). "
         "Commands: /state, /report, /budgets, /new, exit"
     )
     while (q := input("\nYou: ").strip()).lower() not in {"exit", "quit"}:

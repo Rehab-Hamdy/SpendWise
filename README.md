@@ -15,6 +15,7 @@ Instead of relying on an LLM to do math (where models often hallucinate numbers)
 | **Agent Middleware** | • `@before_model` (`input_guard_and_log`): Logs inputs and deterministically blocks off-topic/code/jailbreak prompts.<br>• `@wrap_tool_call` (`safe_tool_execution`): Catches tool errors and returns structured `ToolMessage` feedback.<br>• `@after_model` (`validate_and_log_output`): Sanitizes vendor identity leaks and verifies cited transaction amounts against tool evidence.<br>• `ModelRetryMiddleware`: Exponential backoff retry on free-tier API rate limits (`429`). |
 | **Human-in-the-Loop (HITL)** | `HumanInTheLoopMiddleware(interrupt_on={"save_budget": True, "delete_budget": True})` pauses execution and requires explicit user approval (`Approve` / `Reject`) before modifying `budgets.json`. |
 | **Structured Output (Pydantic)** | Generates validated `ExpenseReport` objects (`schemas.py`) combining exact Python metrics with AI-synthesized key findings. |
+| **LangSmith Observability** | Automatic end-to-end tracing of agent turns (`SpendWiseStreamlitTurn`, `SpendWiseChatTurn`), middleware hooks, tool inputs/outputs, token usage, and `@traceable` structured report generation, grouped by `thread_id`. |
 
 ---
 
@@ -45,6 +46,7 @@ flowchart TD
 
     Agent -->|"Draft response"| GuardOut["✅ @after_model Middleware\n(validate_and_log_output)"]
     GuardOut -->|"Verified response"| UI
+    Agent -.->|"Traces, tokens & thread_id"| LangSmith[("🔍 LangSmith\nObservability")]
 ```
 
 ---
@@ -86,6 +88,13 @@ The **📑 Structured Expense Report** tab generates a Pydantic-validated `Expen
 
 ---
 
+### 6. Middleware Scope Guardrail & LangSmith Live Status
+When asked an off-topic question (*"Give me Python code that print my name."*), the `@before_model` middleware (`input_guard_and_log`) deterministically blocks the request before calling the LLM and returns a polite refusal guiding the user back to expense analysis. Also note the live **`LangSmith: 🟢 Active (SpendWise)`** indicator in the left sidebar.
+
+![Middleware Scope Guardrail and LangSmith Status](screenshots/image_6.png)
+
+---
+
 ## 📁 Project Structure
 
 ```text
@@ -116,12 +125,17 @@ python -m venv spendwise/.venv
 python -m pip install -U -r spendwise/requirements.txt
 ```
 
-### 2. Configure Your Free LLM API Key
-Copy `spendwise/.env.example` to `spendwise/.env` and add your free API key (e.g., from [Groq](https://console.groq.com/keys) or [Google AI Studio](https://aistudio.google.com/apikey)):
+### 2. Configure Your Free LLM API Key & LangSmith Tracing
+Copy `spendwise/.env.example` to `spendwise/.env` and add your free API key (e.g., from [Groq](https://console.groq.com/keys) or [Google AI Studio](https://aistudio.google.com/apikey)), plus optional [LangSmith](https://smith.langchain.com/) tracing:
 
 ```env
 MODEL_NAME=groq:llama-3.3-70b-versatile
 GROQ_API_KEY=your_groq_api_key_here
+
+# Optional: LangSmith Observability (https://smith.langchain.com/)
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=lsv2_pt_your_langsmith_key_here
+LANGSMITH_PROJECT=SpendWise
 ```
 
 ### 3. Run the Streamlit Web App

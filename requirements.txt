@@ -3,5 +3,6 @@ langchain>=1.0
 langchain-groq
 langchain-google-genai
 langchain-openai
+langsmith>=0.1.0
 streamlit>=1.38.0
 python-dotenv>=1.0.1
