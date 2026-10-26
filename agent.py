@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from langchain.agents import AgentState, create_agent
 from langchain.agents.middleware import (
     HumanInTheLoopMiddleware,
+    ModelRetryMiddleware,
     Runtime,
     after_model,
     before_model,
@@ -277,7 +278,12 @@ def build_agent(
         categories=", ".join(sorted(df["category"].unique())),
     )
 
-    middlewares = [input_guard_and_log, safe_tool_execution, validate_and_log_output]
+    middlewares = [
+        input_guard_and_log,
+        ModelRetryMiddleware(max_retries=4, initial_delay=3.0, backoff_factor=2.0),
+        safe_tool_execution,
+        validate_and_log_output,
+    ]
     if require_approval:
         middlewares.append(
             HumanInTheLoopMiddleware(
