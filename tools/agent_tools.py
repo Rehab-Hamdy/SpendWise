@@ -11,7 +11,10 @@ so the model does not have to pass file paths or DataFrames around.
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from langchain_core.tools import BaseTool, tool
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import BaseTool
+from langchain.tools import ToolRuntime, tool
+from langgraph.types import Command
 
 from .analysis import (
     compare_spending_periods as _compare,
@@ -46,14 +49,25 @@ def make_tools(csv_path: str | Path) -> List[BaseTool]:
         period_a_end: str,
         period_b_start: str,
         period_b_end: str,
-    ) -> dict:
+        runtime: ToolRuntime,
+    ) -> Command:
         """Compare spending between two periods. Period A is the baseline
         (e.g. last month), period B is the period being investigated (e.g. this
         month). Returns total change, % change, a per-category breakdown sorted
         by the biggest change, and supporting transactions. Use for "why did my
         spending increase/decrease?" questions. All dates are YYYY-MM-DD.
         """
-        return _compare(df, period_a_start, period_a_end, period_b_start, period_b_end)
+        result = _compare(df, period_a_start, period_a_end, period_b_start, period_b_end)
+        # A tool can update the agent's *state* by returning a Command.
+        # `runtime` is injected by LangChain and is hidden from the model.
+        return Command(
+            update={
+                "last_comparison": result,  # remembered for follow-up questions
+                "messages": [
+                    ToolMessage(content=str(result), tool_call_id=runtime.tool_call_id)
+                ],
+            }
+        )
 
     @tool
     def detect_unusual_expenses() -> dict:
